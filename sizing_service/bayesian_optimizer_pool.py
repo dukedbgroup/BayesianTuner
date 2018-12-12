@@ -1,5 +1,5 @@
 import threading
-from .sizing_session import SizingSession
+from sizing_session import SizingSession
 
 
 class BayesianOptimizerPool():

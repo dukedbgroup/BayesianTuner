@@ -70,19 +70,25 @@ def get_app_by_name(app_name):
 
 # get from configdb the type of an application ("long-running" or "batch")
 def get_app_type(app_name):
+    return "long-running"
+'''
     app = get_app_by_name(app_name)
 
     return app['type']
-
+'''
 
 # get from configdb the slo metric type of an application
 def get_slo_type(app_name):
+    return 'latency'
+'''
     app = get_app_by_name(app_name)
 
     return app['slo']['type']
-
+'''
 
 def get_slo_value(app_name):
+    return 500.
+'''
     app = get_app_by_name(app_name)
 
     try:
@@ -91,9 +97,11 @@ def get_slo_value(app_name):
         slo_value = 500.  # TODO: put an nan
 
     return slo_value
-
+'''
 
 def get_budget(app_name):
+    return 25000.
+'''
     app = get_app_by_name(app_name)
 
     try:
@@ -102,7 +110,7 @@ def get_budget(app_name):
         budget = 25000.  # all types allowed
 
     return budget
-
+'''
 
 # get from configdb the {cpu|mem} requests (i.e. min) for the app service container
 def get_resource_requests(app_name):

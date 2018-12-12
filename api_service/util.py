@@ -21,12 +21,12 @@ config = get_config()
 nodetype_collection = config.get("ANALYZER", "NODETYPE_COLLECTION")
 app_collection = config.get("ANALYZER", "APP_COLLECTION")
 my_region = config.get("ANALYZER", "MY_REGION")
-cost_type = config.get("ANALYZER", "COST_TYPE")
+cost_type = 'time' #config.get("ANALYZER", "COST_TYPE")
 
 DEFAULT_CLOCK_SPEED = 2.3
 DEFAULT_NET_PERF = 'Low'
 DEFAULT_IO_THPT = 125
-DEFAULT_COST = {'LinuxOnDemand': 2.1, 'LinuxReserved': 1.14,
+DEFAULT_COST = {'time': 100, 'LinuxOnDemand': 2.1, 'LinuxReserved': 1.14,
                 'WindowsOnDemand': 2.6, 'WindowsReserved': 1.35}
 
 NETWORK_DICT = {'Very Low': 50, 'Low': 100, 'Low to Moderate': 300, 'Moderate': 500, 'High': 1000,
@@ -81,7 +81,7 @@ def update_and_return_doc(app_id, update_doc, unset=False):
         result = jsonify(data=updated_doc)
         result.status_code = 200
         return result
-    return error_response(f"Could not update app {app_id}.", 404)
+    return error_response("Could not update app {app_id}.", 404)
 
 
 def ensure_application_updated(app_id, update_doc):
@@ -114,15 +114,50 @@ def shape_service_placement(deploy_json):
 def get_all_nodetypes(region=my_region):
     """ Get all nodetypes from the database and convert them into a map.
     """
+    df = pd.read_csv('/home/mayuresh/analyzer/perf_data/kmeans.tsv', sep='\t', header=0, index_col=0)
+    # nodes_list = [1, 2, 3, 4]
+    # cores_list_1 = [2, 4, 6, 8]
+    # cores_list_2 = [1, 2, 3, 4]
+    # cores_list_3 = [1, 2]
+    # memory_list = [0.2, 0.4, 0.6, 0.8]
+    # newratio_list = [1, 3, 5, 7]
+
+    # print(df.head(10))
+    nodetype_list = []
+    for row in df.iterrows():
+      index, data = row
+      # print(index, ': ', data)
+      nodetype_list.append({'name':index, 'nodes':data['numContainers'], 'cores':data['concurrency']*data['numContainers'], 'memory':data['cache'], 'newRatio':data['newratio'], 'instanceType':index, 'cost': {'time':data['time'], 'variance':data['sigma'], 'whitebox':data['U']}})
+
+    '''
+    nodeId = 0
+    for nodes in nodes_list:
+      cores_list = cores_list_3
+      if nodes == 1
+        cores_list = cores_list_1
+      if nodes == 2
+        cores_list = cores_list_2
+      for cores in cores_list
+        for memory in memory_list:
+          for newratio in newratio_list:
+            nodetype_list.append({'name':nodeId, 
+'nodes':nodes, 'cores':cores*nodes, 'memory':memory, 'newRatio':newratio,
+'instanceType':nodeId, 'cost': {'time':time}})
+            nodeId = nodeId + 1
+    else:
+      print('Enumerated nodetypes #', nodeId)
+    '''
+    '''
     region_filter = {'region': region}
     nodetype_list = configdb[nodetype_collection].find_one(region_filter)
+    '''
     nodetype_map = {}
     if nodetype_list is None:
         raise KeyError(
             'Cannot find nodetype document: filter={}'.format(region_filter))
-
+    
     # creating dictionary for nodetypes
-    for nodetype in nodetype_list['data']:
+    for nodetype in nodetype_list:
         nodetype_map[nodetype['name']] = nodetype
 
     return nodetype_map
@@ -155,8 +190,13 @@ def get_raw_features(nodetype_name):
     nodetype = nodetype_map.get(nodetype_name)
     if nodetype is None:
         raise KeyError(
-            f'Cannot find instance type in the database: name={nodetype_name}')
-
+            'Cannot find instance type in the database: name={nodetype_name}')
+    nodes = nodetype['nodes']
+    cores = nodetype['cores']
+    memory = nodetype['memory']
+    newRatio = nodetype['newRatio']
+    feature_vector = np.array([nodes, cores, memory, newRatio])
+    '''
     vcpu = nodetype['cpuConfig']['vCPU']
     clock_speed = nodetype['cpuConfig']['clockSpeed']['value']
     mem_size = nodetype['memoryConfig']['size']['value']
@@ -175,7 +215,7 @@ def get_raw_features(nodetype_name):
 
     feature_vector = np.array(
         [vcpu, clock_speed, mem_size, net_bw, io_thpt])
-
+    '''
     return feature_vector
 
 
@@ -200,7 +240,6 @@ def decode_nodetype(feature_vector, available_nodetypes):
             candidate_rank (list of tuples): sorted list of (euclidean distance, available nodetypes)
                 i.e. [(0.353, 'nodetype1'), (0.526, 'nodetype2), ...]
     """
-
     return sorted([(euclidean(encode_nodetype(nodetype), feature_vector), nodetype)
                    for nodetype in available_nodetypes])
 
@@ -215,7 +254,8 @@ def get_price(nodetype_name):
             f'Cannot find instance type in the database: name={nodetype_name}')
 
     try:
-        price = nodetype['hourlyCost'][cost_type]['value']
+        price = nodetype['cost'][cost_type]
+#        price = nodetype['hourlyCost'][cost_type]['value']
         if price == 0:
             price = DEFAULT_COST[cost_type]
     except KeyError:
@@ -238,19 +278,25 @@ def compute_cost(price, slo_type, qos_value):
 
 # get from configdb the type of an application ("long-running" or "batch")
 def get_app_type(app_name):
+    return "long-running"
+'''
     app = get_app_info(app_name)
 
     return app['type']
-
+'''
 
 # get from configdb the slo metric type of an application
 def get_slo_type(app_name):
+    return "latency"
+'''
     app = get_app_info(app_name)
 
     return app['slo']['type']
-
+'''
 
 def get_slo_value(app_name):
+    return 500.
+'''
     app = get_app_info(app_name)
 
     try:
@@ -259,9 +305,11 @@ def get_slo_value(app_name):
         slo_value = 500.  # TODO: put an nan
 
     return slo_value
-
+'''
 
 def get_budget(app_name):
+    return 25000.
+'''
     app = get_app_info(app_name)
 
     try:
@@ -270,6 +318,7 @@ def get_budget(app_name):
         budget = 25000.  # all types allowed
 
     return budget
+'''
 
 
 # get from configdb the {cpu|mem} requests (i.e. min) for the app service container
@@ -289,7 +338,7 @@ def get_resource_requests(app_name):
                 resource_requests = container_spec['resources']['requests']
             except KeyError:
                 logger.debug(
-                    f"No resource requests for the container running {service}")
+                    "No resource requests for the container running {service}")
                 return min_resources
 
             try:
@@ -302,7 +351,7 @@ def get_resource_requests(app_name):
                     min_resources['cpu'] = float(cpu_request)
             except KeyError:
                 logger.debug(
-                    f"No cpu request for the container running {service}")
+                    "No cpu request for the container running {service}")
 
             try:
                 mem_request = resource_requests['memory']
@@ -317,10 +366,10 @@ def get_resource_requests(app_name):
                     min_resources['mem'] = float(mem_request) / 1024. / 1024.
             except KeyError:
                 logger.debug(
-                    f"No memory request for the container running {service}")
+                    "No memory request for the container running {service}")
 
     logger.info(
-        f"Found resource requests for app {app_name} service {service}: {min_resources}")
+        "Found resource requests for app {app_name} service {service}: {min_resources}")
     return min_resources
 
 
@@ -370,7 +419,7 @@ def get_calibration_dataframe(calibration_document):
 def percentile(n):
     def f(series): return series.quantile(n / 100)
 
-    f.__name__ = f"percentile_{n}"
+    f.__name__ = "percentile_{n}"
     return f
 
 

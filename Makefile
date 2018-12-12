@@ -4,7 +4,7 @@ ANALYZER_IMAGE ?= hyperpilot/analyzer
 TAG ?= latest
 SLO_CONFIG_IMAGE ?= hyperpilot/analyzer:config
 
-PYTHON = python3
+PYTHON = python3.6
 PYTHON_VERSION = $(shell $(PYTHON) --version)
 PY_VERSION_OK = $(shell $(PYTHON) -c 'import sys; print(int(sys.version_info >= (3, 6, 1)))')
 PIPENV = $(shell which pipenv)

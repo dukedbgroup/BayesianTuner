@@ -10,8 +10,8 @@ from api_service.db import metricdb
 from config import get_config
 from logger import get_logger
 
-from .bayesian_optimizer import get_candidate
-from .session_worker_pool import FuncArgs, Status, SessionStatus, SessionWorkerPool
+from bayesian_optimizer import get_candidate
+from session_worker_pool import FuncArgs, Status, SessionStatus, SessionWorkerPool
 from state.apps import (get_app_by_name, get_slo_type, get_slo_value, get_budget)
 from api_service.util import (get_all_nodetypes, compute_cost, decode_nodetype, encode_nodetype,
                               get_price, get_raw_features, get_feature_bounds, get_resource_requests)
@@ -57,14 +57,13 @@ class SizingSession():
             app_name(str): Name of the target application
             sample_data(list): List of reported sample data per instance type
         """
-
         # Generate initial samples if the sample_data field is empty (only at the start of a session)
         if not sample_data or len(sample_data) == 0:
             assert self.available_nodetype_set is None,\
                 "Incoming sample_data can only be empty at the beginning of a session"
             # initialize with all available nodetypes (defensive copy)
             self.available_nodetype_set = set(copy.deepcopy(get_all_nodetypes()).keys())
-
+            '''
             # update available nodetypes with app container resource requests
             min_resources = get_resource_requests(app_name)
             excluded_nodetypes = []
@@ -75,14 +74,14 @@ class SizingSession():
             logger.debug(
                 f"[{self.session_id}] Nodetypes to be excluded due to insufficient resources: {excluded_nodetypes} ")
             self.update_available_nodetype_set(excluded_nodetypes)
-
+            
             try:
                 self.initialize_sizing_doc(app_name)
                 logger.info(f"[{self.session_id}] Initial sizing document created")
             except Exception as e:
                 return SessionStatus(status=Status.SERVER_ERROR,
                                      error="Failed to create initial sizing document: " + str(e))
-
+            '''
             # draw inital samples
             logger.debug(f"[{self.session_id}] Generating {num_init_samples} random initial samples")
             functions = []
@@ -90,7 +89,7 @@ class SizingSession():
                 FuncArgs(SizingSession.generate_initial_samples, num_init_samples, self.available_nodetype_set))
             with self.__instance_lock:
                 return self.pool.submit_funcs(functions)
-
+        '''
         # Pre-process sample data and remove unavailable nodetypes
         logger.debug(f"[{self.session_id}] Received non-empty sample data; preprocessing...")
         unavailable_nodetypes = [i['instanceType'] for i in
@@ -106,12 +105,21 @@ class SizingSession():
                 FuncArgs(SizingSession.generate_initial_samples, num_init_samples, self.available_nodetype_set))
             with self.__instance_lock:
                 return self.pool.submit_funcs(functions)
-
+        '''
 
         # Update sample dataframe and check termination
         new_sample_dataframe = SizingSession.create_sample_dataframe(app_name, sample_data)
+        # force samples
+        allNodes = get_all_nodetypes()
+        '''
+        for var in [27, 69, 146, 220]:
+          samp = {'instanceType': var, 'qosValue': allNodes[var]['cost']['time']}
+          orig_dataframe = SizingSession.create_sample_dataframe(app_name, [samp])
+          self.update_available_nodetype_set(orig_dataframe['nodetype'].values)
+          self.update_sample_dataframe(orig_dataframe)
+        '''
         # Store the sizing run result to the database
-        self.update_sizing_run(new_sample_dataframe)
+        # self.update_sizing_run(new_sample_dataframe)
         self.update_available_nodetype_set(new_sample_dataframe['nodetype'].values)
         self.update_sample_dataframe(new_sample_dataframe)
         assert self.sample_dataframe is not None, "sample dataframe should not be empty"
@@ -121,7 +129,7 @@ class SizingSession():
             recommendations = self.compute_recommendations()
             logger.info(
                 f"[{self.session_id}] Sizing analysis is done; final recommendations:\n{recommendations}")
-            self.store_final_result(recommendations)
+            # self.store_final_result(recommendations)
             #functions = []
             #functions.append(FuncArgs(self.store_final_result, recommendations))
             #return self.pool.submit_funcs(functions)
@@ -156,8 +164,9 @@ class SizingSession():
             if not candidates or len(candidates) == 0:
                 logger.debug(f"[{self.session_id}] No more candidate suggested.")
             else:
-                if type(candidates[0][0]) is str:
+                if type(candidates[0][0]) is int:
                     # candidates are nodetypes
+                    print('if status.data:', status.data)
                     status.data = candidates[0]
                     # TESTING: Return only the first candidate
                     #status.data = [candidates[0][0]]
@@ -165,12 +174,13 @@ class SizingSession():
                     # candidates are feature vectors; need to be decoded into nodetypes
                     # TESTING: Return only the first candidate
                     #candidates = [candidates[0]]
+                    print('else status.data:', status.data)
                     status.data = self.filter_candidates(
                         [decode_nodetype(c, list(self.available_nodetype_set))
                             for c in candidates if c is not None])
                 logger.debug(
                     f"[{self.session_id}] New candidates suggested for the next sizing run: {status.data}")
-                self.store_sizing_run(status.data)
+                # self.store_sizing_run(status.data)
 
         return status
 
@@ -190,10 +200,11 @@ class SizingSession():
                 intersection = set(new_sample_dataframe['nodetype']).intersection(
                     set(curr_sample_dataframe['nodetype']))
                 if intersection:
-                    logger.warning(f"[{self.session_id}] Duplicated samples were sent from the client")
-                    logger.warning(f"[{self.session_id}]  new samples:\n\
-                        {new_sample_dataframe}\ncurrent samples:\n{curr_sample_dataframe}")
-                    logger.warning(f"[{self.session_id}]  intersection: {intersection}")
+                    # logger.warning(f"[{self.session_id}] Duplicated samples were sent from the client")
+                    # logger.warning(f"[{self.session_id}]  new samples:\n\
+                    #    {new_sample_dataframe}\ncurrent samples:\n{curr_sample_dataframe}")
+                    # logger.warning(f"[{self.session_id}]  intersection: {intersection}")
+                    return
 
             self.sample_dataframe = pd.concat(
                 [curr_sample_dataframe, new_sample_dataframe])
@@ -216,6 +227,7 @@ class SizingSession():
             return True
 
         new_opt_poc = self.compute_optimum()
+        print('New optimum: ', new_opt_poc)
         optimal_poc = self.optimal_poc
         if (optimal_poc is None) or (len(all_samples) < min_samples) or\
                 (new_opt_poc - optimal_poc >= min_improvement * optimal_poc):
@@ -262,6 +274,14 @@ class SizingSession():
         """ This method randomly select a 'instanceFamily',
             and randomly select a 'nodetype' from that family repeatly
         """
+        result = []
+        # pre-created samples with LHS
+        all_nodetypes = get_all_nodetypes()
+        result.append(all_nodetypes[27]['name'])
+        result.append(all_nodetypes[69]['name'])
+        result.append(all_nodetypes[146]['name'])
+        result.append(all_nodetypes[188]['name'])
+        '''
         all_nodetypes = get_all_nodetypes()
         node_values = []
         if available_nodetypes:
@@ -289,7 +309,7 @@ class SizingSession():
             # reset available when all families are visited
             if not available:
                 available = list(instance_families)
-
+        '''
         logger.debug(f"Generated initial random samples:\n{result}")
         return result
 
@@ -376,7 +396,7 @@ class SizingSession():
         Returns:
                 dfs(dataframe): sample data organized in dataframe
         """
-        slo_type = get_slo_type(app_name)
+        slo_type = 'latency' # get_slo_type(app_name)
         assert slo_type in ['throughput', 'latency'], \
             f'slo type should be either throughput or latency, but got {slo_type}'
 
@@ -410,8 +430,8 @@ class SizingSession():
         else:
             perf_arr = self.sample_dataframe['qos_value']
 
-        perf_over_cost = perf_arr / self.sample_dataframe['cost']
-        return np.max(perf_over_cost)
+        # perf_over_cost = perf_arr / self.sample_dataframe['cost']
+        return np.max(perf_arr)
 
     def compute_recommendations(self):
         """ Compute the final recommendations from the optimizer -
@@ -575,3 +595,4 @@ class SizingSession():
         logger.info(f"[{self.session_id}] Final recommendations have been stored in the database")
 
         return None
+

@@ -123,6 +123,7 @@ def acq_max(utility, bounds):
             x_max = res.x
             max_acq = -res.fun[0]
 
+    print('**max acq found: ', max_acq)
     # Clip output to make sure it lies within the bounds.
     # Due to floating point operations this is not always guaranteed.
     return np.clip(x_max, bounds[:, 0], bounds[:, 1])
@@ -161,7 +162,7 @@ def get_fitted_gaussian_processor(X_train, y_train, constraint_upper, standardiz
             scaled_constraint_upper = y_train[-1]
             y_train = y_train[:-1]
         else:
-            y_train = scale(y_train)
+            y_train = scale([i for i in y_train])
             scaled_constraint_upper = None
         gp.constraint_upper = scaled_constraint_upper
     else:
@@ -217,5 +218,5 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
     # Finding argmax of the acquisition function.
     logger.debug("Computing argmax of acquisition function")
     argmax = acq_max(utility=util.utility, bounds=bounds)
-
+    print('**found argmax', argmax)
     return argmax
