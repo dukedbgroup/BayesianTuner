@@ -16,6 +16,7 @@ __copyright__ = "Copyright 2017, HyperPilot Inc"
 from random import randint
 import argparse
 import json
+import numpy as np
 import sys, os
 import time
 import operator
@@ -26,6 +27,7 @@ import bayesian_optimizer_pool
 # a couple of globals
 features = {}
 times = {}
+variance = {}
 cloud = None
 
 class AwsPerf(object):
@@ -198,7 +200,7 @@ def __main__():
   # parse arguments
   parser = argparse.ArgumentParser()
   parser.add_argument("-v", "--verbose", type=str2bool, required=False, default=False, help="increase output verbosity")
-  parser.add_argument("-i", "--iter", type=int, required=False, default=10, help="maximum iterations")
+  parser.add_argument("-i", "--iter", type=int, required=False, default=50, help="maximum iterations")
   parser.add_argument("-n", "--noise", type=str2bool, required=False, default=True, help="add noise to cloud performance")
   parser.add_argument("-r", "--nrange", type=int, required=False, default=10, help="noise range (int)")
   parser.add_argument("-m", "--model", type=str, required=False, default="not-aws", help="perf model used (aws or cloud)")
@@ -253,6 +255,7 @@ def __main__():
   global cloud
   global features
   global times
+  global variance
   global aws_data
   global model
   cloud = CloudPerf(args.va, args.vb, args.vc, args.vw, max_v, \
@@ -287,12 +290,13 @@ def __main__():
       print("WARNING: problem with nodetype features ", name, feat)
     features[name] = feat
     times[name] = nodetype['cost']['time']
+    variance[name] = nodetype['cost']['variance']
   # visited instances
   visited = set()
   print("...Got information for %d instance types" %numtypes)
 
   # main loop
-  for i in range(7): #range(args.iter):
+  for i in range(args.iter): #range(args.iter):
     print("...Iteration %d out of %d" %(i, args.iter))
     # check if done
     while True:
@@ -313,25 +317,26 @@ def __main__():
       break
 
     # prepare next candidates
-    request_str = "{\"appName\": \"mysql\", \"data\": [ "
+    lastApp = status_dict["data"][len(status_dict["data"])-1]
+    request_str = "{\"appName\": %d, \"data\": [ " %lastApp
     count = 0
-    print('status-dict:', status_dict["data"])
+    # print('status-dict:', status_dict["data"])
     for nodetype in status_dict["data"]:
       count += 1
       feat = features[nodetype]
       if model == 'aws': # use real data from aws
           perf = aws_data.perf_map[nodetype]['qosValue']
       else: # use CloudPerf model instead
-          perf = times[nodetype]
+          perf = times[nodetype] + np.sqrt(variance[nodetype]) * np.random.randn()
           # perf = cloud.perf(feat[0], feat[1], feat[2], feat[3], args.noise)
-      request_str += "{\"instanceType\": %d, \"qosValue\": %f}" %(nodetype, perf)
+      request_str += "{\"instanceType\": %d, \"qosValue\": %f, \"variance\": %f}" %(nodetype, perf, variance[nodetype])
       if count < len(status_dict["data"]):
         request_str += ", "
       if nodetype in visited:
         print("WARNING: re-considering type %s" %nodetype)
       else:
         visited.add(nodetype)
-        print("......Considering nodetype %s" %nodetype)
+        #print("......Considering nodetype %s" %nodetype)
     request_str += "]}"
     request_dict = json.loads(request_str)
     result_dict = analyzer.get_candidates(session_id, request_dict).to_dict()

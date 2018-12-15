@@ -5,6 +5,7 @@ import threading
 import numpy as np
 import pandas as pd
 import copy
+import time
 
 from api_service.db import metricdb
 from config import get_config
@@ -32,12 +33,37 @@ np.set_printoptions(precision=3)
 logger = get_logger(__name__, log_level=(
     "BAYESIAN_OPTIMIZER_SESSION", "LOGLEVEL"))
 
+# hardcoding memory values for whitebox
+minit = 1.33E+08
+mtask = 7.14E+07
+mcache = 0.8
+# function to extract white box utility for a given point
+def whiteboxEval(x):
+    # print('read x: ', x)
+    numContainers = int(round(x[0] * 4))
+    numCores = int(round(x[1] * 8 / numContainers))
+    cache = x[2] * 0.8
+    newRatio = int(round(x[3] * 7))
+    heap = 4404.0 * 1024 * 1024 / numContainers
+    heapMinusSurvivor = heap * (4 * (newRatio + 1) - 1) / (4 * (newRatio + 1)) #assuming survivorRatio=4
+    #print('cont: ', numContainers, ' conc: ', numCores, ' cache: ', cache, ' newRatio: ', newRatio, ' heap: ', heapMinusSurvivor)
+    totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache, cache)
+    penalty1 = 2 * np.maximum(totalUsed - heapMinusSurvivor, 0)
+    penalty2 = 2 * np.maximum(totalUsed - numCores*mtask - heap*newRatio/(newRatio+1), 0)
+    U = (totalUsed - penalty1 - penalty2) / heap
+    #print('utility: ', U)
+    return U 
+
+whiteboxFunction = np.vectorize(whiteboxEval, signature='(n)->()')
+  
 
 class SizingSession():
     """ This class manages the training samples in a single sizing session,
         dispatches jobs to the worker pool, and tracks the status of each job.
     """
     __instance_lock = threading.Lock()
+    global whiteboxtime
+    global whiteboxcalls
 
     def __init__(self, session_id):
         self.session_id = session_id
@@ -111,19 +137,13 @@ class SizingSession():
         new_sample_dataframe = SizingSession.create_sample_dataframe(app_name, sample_data)
         # force samples
         allNodes = get_all_nodetypes()
-        '''
-        for var in [27, 69, 146, 220]:
-          samp = {'instanceType': var, 'qosValue': allNodes[var]['cost']['time']}
-          orig_dataframe = SizingSession.create_sample_dataframe(app_name, [samp])
-          self.update_available_nodetype_set(orig_dataframe['nodetype'].values)
-          self.update_sample_dataframe(orig_dataframe)
-        '''
         # Store the sizing run result to the database
         # self.update_sizing_run(new_sample_dataframe)
         self.update_available_nodetype_set(new_sample_dataframe['nodetype'].values)
         self.update_sample_dataframe(new_sample_dataframe)
         assert self.sample_dataframe is not None, "sample dataframe should not be empty"
-        logger.debug(f"[{self.session_id}] All training samples evaluted:\n{self.sample_dataframe}")
+        print('new sample: ', self.sample_dataframe.tail(1))
+        #logger.debug(f"[{self.session_id}] All training samples evaluted:\n{self.sample_dataframe}")
 
         if self.check_termination():
             recommendations = self.compute_recommendations()
@@ -137,20 +157,21 @@ class SizingSession():
 
         # Dispatch the optimizers for multiple objective functions in parallel
         functions = []
-        logger.debug(f"Objective functions used: {BO_objectives}")
+        # logger.debug(f"Objective functions used: {BO_objectives}")
         for obj in BO_objectives:
             training_data = SizingSession.make_optimizer_training_data(
                 self.sample_dataframe, obj)
-            logger.debug(f"[{self.session_id}] Dispatching optimizer for objective {obj} \
-                with training data:\n{training_data}")
+            #logger.debug(f"[{self.session_id}] Dispatching optimizer for objective {obj} \
+            #    with training data:\n{training_data}")
             functions.append(
                 FuncArgs(get_candidate, \
                          training_data.feature_mat, \
                          training_data.objective_arr, \
                          get_feature_bounds(normalized=True), \
-                         acq='cei' if training_data.has_constraint() else 'ei', \
+                         acq='cei' if training_data.has_constraint() else 'eiguided', \
                          constraint_arr=training_data.constraint_arr, \
-                         constraint_upper=training_data.constraint_upper))
+                         constraint_upper=training_data.constraint_upper,
+                         whitebox=whiteboxFunction, gamma=0))
 
         with self.__instance_lock:
             return self.pool.submit_funcs(functions)
@@ -166,7 +187,6 @@ class SizingSession():
             else:
                 if type(candidates[0][0]) is int:
                     # candidates are nodetypes
-                    print('if status.data:', status.data)
                     status.data = candidates[0]
                     # TESTING: Return only the first candidate
                     #status.data = [candidates[0][0]]
@@ -174,14 +194,12 @@ class SizingSession():
                     # candidates are feature vectors; need to be decoded into nodetypes
                     # TESTING: Return only the first candidate
                     #candidates = [candidates[0]]
-                    print('else status.data:', status.data)
                     status.data = self.filter_candidates(
                         [decode_nodetype(c, list(self.available_nodetype_set))
                             for c in candidates if c is not None])
-                logger.debug(
-                    f"[{self.session_id}] New candidates suggested for the next sizing run: {status.data}")
+                # logger.debug(
+                #    f"[{self.session_id}] New candidates suggested for the next sizing run: {status.data}")
                 # self.store_sizing_run(status.data)
-
         return status
 
     def update_available_nodetype_set(self, exclude_keys):
@@ -227,7 +245,7 @@ class SizingSession():
             return True
 
         new_opt_poc = self.compute_optimum()
-        print('New optimum: ', new_opt_poc)
+        # print('New optimum: ', new_opt_poc)
         optimal_poc = self.optimal_poc
         if (optimal_poc is None) or (len(all_samples) < min_samples) or\
                 (new_opt_poc - optimal_poc >= min_improvement * optimal_poc):
@@ -264,7 +282,7 @@ class SizingSession():
                     result.append(nodetype)
                     break
 
-        logger.debug(f"[{self.session_id}] Filtered candidates: {result}")
+        # logger.debug(f"[{self.session_id}] Filtered candidates: {result}")
         assert len(set(result)) == len(result), "Filtered candidates cannot have duplicates"
         return result
 
@@ -366,8 +384,8 @@ class SizingSession():
             raise AssertionError(f'invalid slo type: {slo_type}')
 
         # Compute objectives
-        perf_over_cost = (
-            perf_arr / sample_dataframe['cost']).rename("performance over cost")
+        perf_over_cost = perf_arr.rename("performance over cost")
+        # (perf_arr / sample_dataframe['cost']).rename("performance over cost")
 
         if objective_type == 'perf_over_cost':
             return BOTrainingData(objective_type,
@@ -404,8 +422,10 @@ class SizingSession():
         for data in sample_data:
             nodetype = data['instanceType']
             qos_value = data['qosValue']
+            variance = data['variance']
             df = pd.DataFrame({'app_name': [app_name],
                                'qos_value': [qos_value],
+                               'variance': [variance],
                                'slo_type': [slo_type],
                                'nodetype': [nodetype],
                                'feature': [encode_nodetype(nodetype)],
@@ -582,6 +602,7 @@ class SizingSession():
         """ This method stores the final recommendations from the sizing session to the database.
             This method is called only after the analysis is completed
         """
+        print('Total white box time: ', whiteboxtime, ' number of calls: ', whiteboxcalls)
 
         # TODO: check if mongodb is thread safe?
         session_filter = {'sessionId': self.session_id}

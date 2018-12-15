@@ -1,6 +1,8 @@
 from __future__ import division, print_function
 
 import numpy as np
+import random
+import time
 from config import get_config
 from logger import get_logger
 from scipy.optimize import minimize
@@ -20,10 +22,10 @@ class UtilityFunction(object):
     """ An object to compute the acquisition functions.
     """
 
-    def __init__(self, kind, gp_objective, gp_constraint=None, constraint_upper=None, xi=0.0, kappa=5.):
+    def __init__(self, kind, gp_objective, gp_constraint=None, constraint_upper=None, xi=0.0, kappa=5., whitebox=None, gamma=0.0):
         """ If UCB is to be used, a constant kappa is needed.
         """
-        self.implementations = ['ucb', 'ei', 'cei', 'poi']
+        self.implementations = ['ucb', 'ei', 'eiguided', 'cei', 'poi']
         if kind not in self.implementations:
             err = f"The utility function {kind} has not been implemented, " \
                 "please choose one of ucb, ei, cei, or poi."
@@ -36,6 +38,8 @@ class UtilityFunction(object):
         self.xi = xi
         self.kappa = kappa
         self.constraint_upper = constraint_upper
+        self.whitebox = whitebox
+        self.gamma = gamma
 
     def utility(self, x, *args):
         gp_objective = self.gp_objective
@@ -47,6 +51,8 @@ class UtilityFunction(object):
             return UtilityFunction._ucb(x, gp_objective, kappa)
         if self.kind == 'ei':
             return UtilityFunction._ei(x, gp_objective, xi)
+        if self.kind == 'eiguided':
+            return UtilityFunction._eiguided(x, gp_objective, xi, self.whitebox, self.gamma)
         if self.kind == 'cei':
             assert gp_constraint is not None, 'gaussian processor for constraint must be provided'
             assert constraint_upper is not None, 'constraint_upper must be provided'
@@ -63,8 +69,24 @@ class UtilityFunction(object):
     def _ei(x, gp_objective, xi):
         y_max = gp_objective.y_train_.max()
         mean, std = gp_objective.predict(x, return_std=True)
+        #print('black box values at: ', x, ' mean: ', mean, ' std: ', std, ' ymax: ', y_max)
         z = (mean - y_max - xi) / std
         return (mean - y_max - xi) * norm.cdf(z) + std * norm.pdf(z)
+
+    @staticmethod
+    def _eiguided(x, gp_objective, xi, whitebox, gamma):
+        '''
+        y_max = gp_objective.y_train_.max()
+        mean, std = gp_objective.predict(x, return_std=True)
+        z = (mean - y_max - xi) / std
+        black = (mean - y_max - xi) * norm.cdf(z) + std * norm.pdf(z)
+        white = whitebox(x)
+        return (1-gamma) * black + gamma * white
+        '''
+        white = whitebox(x)
+        #print('white box values at: ', x, ' U: ', white)
+        return white
+
 
     @staticmethod
     def _cei(x, gp_objective, xi, gp_constraint, constraint_upper):
@@ -105,8 +127,11 @@ def acq_max(utility, bounds):
     x_tries = np.random.uniform(bounds[:, 0], bounds[:, 1],
                                 size=(random_samples, bounds.shape[0]))
     ys = utility(x_tries)
+    # print('ys: ',ys)
     x_max = x_tries[ys.argmax()]
     max_acq = ys.max()
+    # print('**max acq found: ', max_acq, ' at x:', x_max)
+
     logger.info(f'nonzeros in the utility function: {np.count_nonzero(ys)}')
 
     # Explore the parameter space more throughly using L-BFGS-B
@@ -117,13 +142,12 @@ def acq_max(utility, bounds):
         res = minimize(lambda x: -utility(x.reshape(1, -1)), x_try.reshape(1, -1),
                        bounds=bounds,
                        method="L-BFGS-B")
-
         # Store it if better than previous minimum(maximum).
-        if max_acq is None or -res.fun[0] >= max_acq:
+        if max_acq is None or (type(res.fun) is float and -res.fun >= max_acq) or (type(res.fun) is 'array' and -res.fun[0] >= max_acq):
             x_max = res.x
             max_acq = -res.fun[0]
 
-    print('**max acq found: ', max_acq)
+    print('**max acq found: ', max_acq, ' at x:', x_max)
     # Clip output to make sure it lies within the bounds.
     # Due to floating point operations this is not always guaranteed.
     return np.clip(x_max, bounds[:, 0], bounds[:, 1])
@@ -182,7 +206,8 @@ def get_fitted_gaussian_processor(X_train, y_train, constraint_upper, standardiz
 
 def get_candidate(feature_mat, objective_arr, bounds, acq,
                   constraint_arr=None, constraint_upper=None,
-                  kappa=5, xi=0.0, standardize_y=True, **gp_params):
+                  kappa=5, xi=0.0, standardize_y=True,
+                  whitebox=None, gamma=0.0, **gp_params):
     """ Compute the next candidate based on Bayesian Optimization
     Args:
         feature_mat(numpy 2d array): feature vectors
@@ -211,12 +236,22 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
         gp_constraint, constraint_upper = None, None
 
     # Initialize utiliy function
+    if (acq == 'eiguided'):
+      seed = random.random()
+      if (seed > gamma):
+        print('Using black box model')
+        acq = 'ei' # with probability (1-gamma), use black box model
+      else:
+        print('Using white box model')
+
     util = UtilityFunction(kind=acq, gp_objective=gp_objective, gp_constraint=gp_constraint,
                            constraint_upper=gp_constraint.constraint_upper if gp_constraint else None,
-                           xi=xi, kappa=kappa)
+                           xi=xi, kappa=kappa, whitebox=whitebox, gamma=gamma)
 
     # Finding argmax of the acquisition function.
     logger.debug("Computing argmax of acquisition function")
+    start = time.time()
     argmax = acq_max(utility=util.utility, bounds=bounds)
-    print('**found argmax', argmax)
+    print('Time taken: ', time.time()-start)
+    # print('**found argmax', argmax)
     return argmax
