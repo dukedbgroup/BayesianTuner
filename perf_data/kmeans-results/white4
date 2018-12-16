@@ -1,0 +1,505 @@
+/usr/local/lib/python3.6/dist-packages/sklearn/externals/joblib/externals/cloudpickle/cloudpickle.py:47: DeprecationWarning: the imp module is deprecated in favour of importlib; see the module's documentation for alternative uses
+  import imp
+[2018-12-15 16:42:05,360] [sizing_session:112] [DEBUG]
+[hyperpilot-sizing-demo-1-horray] Generating 4 random initial samples
+Running:  sizing_service/analyzer_harness.py
+
+[2018-12-15 16:42:05,370] [sizing_session:331] [DEBUG]
+Generated initial random samples:
+[27, 69, 146, 188]
+[2018-12-15 16:42:05,839] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:07,271] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:08,703] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:10,134] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:11,563] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:12,996] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:14,427] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:15,852] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:17,277] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:18,707] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:20,130] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:21,549] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:22,970] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:24,396] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:25,805] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:27,220] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:28,645] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:30,053] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:31,465] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:32,878] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:34,290] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:35,700] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:37,110] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:38,519] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:39,926] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:41,332] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:42,735] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:44,140] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:45,544] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:46,943] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:48,342] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:49,743] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:51,138] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:52,536] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:53,931] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:55,329] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:56,718] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:42:58,105] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+...Initialized analyzer
+Running analyzer harness with following parameters:
+Namespace(b=1.0, ca=1.0, cb=0.0, cc=0.0, cw=0.25, ia=1.0, ib=0.0, ic=0.0, iter=50, iw=0.1, ma=1.0, mb=0.0, mc=0.0, model='not-aws', mw=0.25, na=1.0, nb=0.0, nc=0.0, noise=True, nrange=10, nw=0.25, va=1.0, vb=0.0, vc=0.0, verbose=False, vw=0.25)
+
+...Got information for 192 instance types
+...Iteration 0 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       188       28.0       0.0   ...     20160.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 1 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       126  12.755991     2.625   ...     10080.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 2 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       109  11.251362       3.5   ...     10080.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 3 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       111  13.731066       3.0   ...     8640.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 4 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       110  12.899285      3.25   ...     9360.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 5 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       157  15.171358  0.583333   ...     10080.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 6 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0        31       14.0       0.0   ...     10080.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 7 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       158       11.0       0.0   ...     7920.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 8 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0        78  18.467894       2.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 9 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       142       10.0       0.0   ...     7200.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 10 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       138       13.0       0.0   ...     9360.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 11 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       159   9.203441    0.3625   ...     6264.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 12 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       154  19.995032  0.833333   ...     14400.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 13 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       170       15.0       0.0   ...     10800.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 14 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0        94  14.222622    3.1875   ...     12240.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 15 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       155  17.434301       1.5   ...     12960.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 16 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       174       13.0       0.0   ...     9360.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 17 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       153       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 18 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       175       14.0       0.0   ...     10080.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 19 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       127       11.0       0.0   ...     7920.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 20 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       190       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 21 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       171       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 22 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       107  18.568978    1.1875   ...     13680.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 23 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       125  12.335564      0.75   ...     8640.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 24 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0       173   11.58516     0.375   ...     8640.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 25 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       187       22.0       0.0   ...     15840.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 26 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        62        8.3       0.0   ...     5976.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 27 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       106       20.0       0.0   ...     14400.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 28 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        95  13.425329      2.25   ...     8640.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 29 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       189       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 30 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0        90       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 31 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       143  15.676699      1.25   ...     10800.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 32 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0        91       20.0       0.0   ...     14400.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 33 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        47        9.0       0.0   ...     6480.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 34 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       123       17.0       0.0   ...     12240.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 35 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        93  11.577367    0.6875   ...     7920.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 36 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        46        8.8       0.0   ...     6336.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 37 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       186       24.0       0.0   ...     17280.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 38 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       105       17.0       0.0   ...     12240.0      500.0  25000.0
+
+[1 rows x 9 columns][2018-12-15 16:42:59,502] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:00,887] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:02,273] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:03,663] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:05,050] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:06,433] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:07,813] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:09,196] [bayesian_optimizer:135] [INFO]
+nonzeros in the utility function: 20
+[2018-12-15 16:43:10,369] [sizing_session:256] [DEBUG]
+[session_id]:Termination condition is met due to small incremental improvement.
+                old_opt_poc = 0.12048192771084336, new_opt_poc = 0.12048192771084336
+[2018-12-15 16:43:10,370] [sizing_session:151] [INFO]
+[hyperpilot-sizing-demo-1-horray] Sizing analysis is done; final recommendations:
+[{'nodetype': 62, 'objective': 'MaxPerfOverCost'}, {'nodetype': 62, 'objective': 'MinCostWithPerfLimit'}, {'nodetype': 62, 'objective': 'MaxPerfWithCostLimit'}]
+
+...Iteration 39 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       191       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 40 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       151  27.050368  1.041667   ...     18000.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 41 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       122       17.0       0.0   ...     12240.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 42 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       185       22.0       0.0   ...     15840.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 43 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0       121       16.0       0.0   ...     11520.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 44 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        63       11.0       0.0   ...     7920.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 45 out of 50
+new sample:     app_name  qos_value  variance   ...       cost  slo_value   budget
+0        45       12.0       0.0   ...     8640.0      500.0  25000.0
+
+[1 rows x 9 columns]
+...Iteration 46 out of 50
+new sample:     app_name  qos_value  variance   ...        cost  slo_value   budget
+0        59       18.0       0.0   ...     12960.0      500.0  25000.0
+
+[1 rows x 9 columns]
+......Sizing session is complete
+
+
+.......................
+... Analyzer results...
+Iterations requested): 50
+Noise:  True
+Noise range:  10
+Min perf:  500.0
+Max cost:  25000.0
+Nodetypes examined:  50
+
+Performance/cost
+   Available # 1:           0, perf       1.05, price 30.000, cost 21600.00, perf/cost       0.00
+   Available # 2:           1, perf       1.55, price 31.000, cost 22320.00, perf/cost       0.00
+   Available # 3:           2, perf       2.05, price 32.000, cost 23040.00, perf/cost       0.00
+   Available # 4:           3, perf       2.55, price 33.000, cost 23760.00, perf/cost       0.00
+   Available # 5:           4, perf       1.10, price 26.000, cost 18720.00, perf/cost       0.00
+   Found    #28:           27, perf       3.15, price 21.000, cost 15120.00, perf/cost       0.00
+
+Using white box model
+**max acq found:  0.8796712727576705  at x: [0.414 0.967 0.911 0.741]
+Time taken:  0.09442687034606934
+Using white box model
+**max acq found:  0.8375159951315033  at x: [0.565 0.851 0.904 0.536]
+Time taken:  0.2011117935180664
+Using white box model
+**max acq found:  0.9093243921061757  at x: [0.528 0.762 0.984 0.889]
+Time taken:  0.13726186752319336
+Using white box model
+**max acq found:  0.8846276961546139  at x: [0.438 0.699 0.952 0.879]
+Time taken:  0.014704704284667969
+Using white box model
+**max acq found:  0.8422071892470454  at x: [0.676 0.728 0.884 0.492]
+Time taken:  0.17183780670166016
+Using white box model
+**max acq found:  0.8583490872828639  at x: [0.364 0.508 0.995 0.888]
+Time taken:  0.0643610954284668
+Using white box model
+**max acq found:  0.9174705386298285  at x: [0.884 0.778 0.88  0.794]
+Time taken:  0.058136940002441406
+Using white box model
+**max acq found:  0.7574044284082616  at x: [0.611 0.251 0.88  0.612]
+Time taken:  0.13207507133483887
+Using white box model
+**max acq found:  0.8732184062414646  at x: [0.669 0.389 0.983 0.739]
+Time taken:  0.013881206512451172
+Using white box model
+**max acq found:  0.8285269396177258  at x: [0.722 0.448 0.915 0.64 ]
+Time taken:  0.10154938697814941
+Using white box model
+**max acq found:  0.9454383912819323  at x: [0.891 0.802 0.916 0.832]
+Time taken:  0.08103394508361816
+Using white box model
+**max acq found:  0.9090204177208789  at x: [0.784 0.677 0.946 0.83 ]
+Time taken:  0.1613600254058838
+Using white box model
+**max acq found:  0.8363467132547592  at x: [0.965 0.732 0.86  0.736]
+Time taken:  0.1333920955657959
+Using white box model
+**max acq found:  0.8313333873129991  at x: [0.555 0.607 0.923 0.807]
+Time taken:  0.0662388801574707
+Using white box model
+**max acq found:  0.9266876864111265  at x: [0.721 0.879 0.965 0.948]
+Time taken:  0.16985011100769043
+Using white box model
+**max acq found:  0.9308783638571044  at x: [0.835 0.728 0.974 0.797]
+Time taken:  0.013610363006591797
+Using white box model
+**max acq found:  0.9168767544941684  at x: [0.89  0.778 0.892 0.595]
+Time taken:  0.013623476028442383
+Using white box model
+**max acq found:  0.9012175106719092  at x: [0.861 0.557 0.992 0.98 ]
+Time taken:  0.24065828323364258
+Using white box model
+**max acq found:  0.9475146781877757  at x: [0.652 0.844 0.996 0.876]
+Time taken:  0.08306670188903809
+Using white box model
+**max acq found:  0.8579302116870245  at x: [0.93  0.857 0.981 0.684]
+Time taken:  0.013597726821899414
+Using white box model
+**max acq found:  0.9142447303723532  at x: [0.867 0.679 0.948 0.997]
+Time taken:  0.14669084548950195
+Using white box model
+**max acq found:  0.9068943872969445  at x: [0.576 0.81  0.976 0.951]
+Time taken:  0.13164615631103516
+Using white box model
+**max acq found:  0.9153020187078738  at x: [0.514 0.979 0.988 0.636]
+Time taken:  0.01360940933227539
+Using white box model
+**max acq found:  0.8580091949396443  at x: [0.954 0.336 0.896 0.55 ]
+Time taken:  0.013571023941040039
+Using white box model
+**max acq found:  0.9086025897400285  at x: [0.968 0.997 0.864 0.961]
+Time taken:  0.01373744010925293
+Using white box model
+**max acq found:  0.9034577680507856  at x: [0.422 0.925 0.95  0.599]
+Time taken:  0.13856053352355957
+Using white box model
+**max acq found:  0.9242631471177184  at x: [0.698 0.821 0.972 0.773]
+Time taken:  0.08469200134277344
+Using white box model
+**max acq found:  0.9299692277343399  at x: [0.631 0.587 0.973 0.798]
+Time taken:  0.0617983341217041
+Using white box model
+**max acq found:  0.9330141608098671  at x: [0.807 0.977 0.947 0.521]
+Time taken:  0.01481318473815918
+Using white box model
+**max acq found:  0.8802441135936344  at x: [0.699 0.705 0.914 0.655]
+Time taken:  0.11891961097717285
+Using white box model
+**max acq found:  0.8509138973592927  at x: [0.746 0.454 0.927 0.978]
+Time taken:  0.0669698715209961
+Using white box model
+**max acq found:  0.9228054752824201  at x: [0.688 0.689 0.964 0.893]
+Time taken:  0.11533331871032715
+Using white box model
+**max acq found:  0.8878233733183551  at x: [0.615 0.673 0.952 0.954]
+Time taken:  0.07476472854614258
+Using white box model
+**max acq found:  0.9269045924430573  at x: [0.47  0.954 0.967 0.891]
+Time taken:  0.046515464782714844
+Using white box model
+**max acq found:  0.8109060968708515  at x: [0.601 0.41  0.922 0.495]
+Time taken:  0.14814305305480957
+Using white box model
+**max acq found:  0.9009931707450406  at x: [0.483 0.661 0.979 0.663]
+Time taken:  0.013803243637084961
+Using white box model
+**max acq found:  0.9461317642186932  at x: [0.95  0.904 0.922 0.776]
+Time taken:  0.16250896453857422
+Using white box model
+**max acq found:  0.8537223428025269  at x: [0.654 0.735 0.888 0.585]
+Time taken:  0.062032461166381836
+Using white box model
+**max acq found:  0.908255471907074  at x: [0.752 0.726 0.945 0.923]
+Time taken:  0.014505624771118164
+Using white box model
+**max acq found:  0.9189654602083119  at x: [0.885 0.781 0.878 1.   ]
+Time taken:  0.04208803176879883
+Using white box model
+**max acq found:  0.8953651428197374  at x: [0.659 0.804 0.934 0.694]
+Time taken:  0.050577402114868164
+Using white box model
+**max acq found:  0.949344139774088  at x: [0.942 0.765 0.927 0.774]
+Time taken:  0.08803153038024902
+Using white box model
+**max acq found:  0.8813963082682151  at x: [0.435 0.951 0.921 0.588]
+Time taken:  0.02732229232788086
+Using white box model
+**max acq found:  0.8621265903914954  at x: [0.352 0.891 0.94  0.873]
+Time taken:  0.056060075759887695
+Using white box model
+**max acq found:  0.8612613141318455  at x: [0.336 0.771 0.973 0.641]
+Time taken:  0.0912024974822998
+Using white box model
+**max acq found:  0.9551129541219787  at x: [0.694 0.985 0.97  0.875]
+Time taken:  0.11158108711242676

@@ -114,7 +114,7 @@ def shape_service_placement(deploy_json):
 def get_all_nodetypes(region=my_region):
     """ Get all nodetypes from the database and convert them into a map.
     """
-    df = pd.read_csv('/home/mayuresh/analyzer/perf_data/kmeans-exhaustive.tsv', sep='\t', header=0, index_col=0)
+    df = pd.read_csv('/home/mayuresh/analyzer/perf_data/sort-exhaustive.tsv', sep='\t', header=0, index_col=0)
     # nodes_list = [1, 2, 3, 4]
     # cores_list_1 = [2, 4, 6, 8]
     # cores_list_2 = [1, 2, 3, 4]
@@ -196,7 +196,7 @@ def get_raw_features(nodetype_name):
     memory = nodetype['memory']
     newRatio = nodetype['newRatio']
     whitebox = nodetype['cost']['whitebox']
-    feature_vector = np.array([nodes, cores, memory, newRatio, whitebox])
+    feature_vector = np.array([nodes, cores, memory, newRatio])
     '''
     vcpu = nodetype['cpuConfig']['vCPU']
     clock_speed = nodetype['cpuConfig']['clockSpeed']['value']
