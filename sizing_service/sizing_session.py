@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import copy
 import time
+from sklearn.linear_model import LinearRegression
 
 from api_service.db import metricdb
 from config import get_config
@@ -34,9 +35,10 @@ logger = get_logger(__name__, log_level=(
     "BAYESIAN_OPTIMIZER_SESSION", "LOGLEVEL"))
 
 # hardcoding memory values for whitebox
-minit = 1.33E+08
+minit = 1.22E+08
 mtask = 7.14E+07
 mcache = 0.8
+a=(0, 1.0, -2.0, -2.0, 0)
 # function to extract white box utility for a given point
 def whiteboxEval(x):
     # print('read x: ', x)
@@ -48,9 +50,11 @@ def whiteboxEval(x):
     heapMinusSurvivor = heap * (4 * (newRatio + 1) - 1) / (4 * (newRatio + 1)) #assuming survivorRatio=4
     #print('cont: ', numContainers, ' conc: ', numCores, ' cache: ', cache, ' newRatio: ', newRatio, ' heap: ', heapMinusSurvivor)
     totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache, cache)
-    penalty1 = 2 * np.maximum(totalUsed - heapMinusSurvivor, 0)
-    penalty2 = 2 * np.maximum(totalUsed - numCores*mtask - heap*newRatio/(newRatio+1), 0)
-    U = (totalUsed - penalty1 - penalty2) / heap
+    penalty1 = np.maximum(totalUsed - heapMinusSurvivor, 0)
+    penalty2 = np.maximum(totalUsed - numCores*mtask - heap*newRatio/(newRatio+1), 0)
+    penalty3 = np.maximum(totalUsed - minit - numCores*mtask - heap*(2/3)*(1/(newRatio+1)), 0)
+    # U = (totalUsed - penalty1 - penalty3) / heap
+    U = (a[0] + a[1] * totalUsed + a[2] * penalty1 + a[3] * penalty2 + a[4] * penalty3) / heap
     #print('utility: ', U)
     return U 
 
@@ -171,7 +175,7 @@ class SizingSession():
                          acq='cei' if training_data.has_constraint() else 'eiguided', \
                          constraint_arr=training_data.constraint_arr, \
                          constraint_upper=training_data.constraint_upper,
-                         whitebox=whiteboxFunction, gamma=0))
+                         whitebox=whiteboxFunction, gamma=0.5))
 
         with self.__instance_lock:
             return self.pool.submit_funcs(functions)
@@ -404,6 +408,45 @@ class SizingSession():
                                   budget)
         else:
             raise UserWarning("Unexpected error")
+
+    @staticmethod
+    def linear_regression(sample_data):
+        """ Fit memory usage function on existing samples
+        Args:
+             sample_data
+        Returns:
+                c: array of coefficients
+                err: square error
+        """
+        n = len(sample_data)
+        X = np.zeros((n, 4))
+        y = np.zeros(n)
+        i = 0
+        for i, data in sample_data.iterrows():
+          nodeType = data['nodetype']
+          features = get_raw_features(nodeType)
+          numContainers = features[0]
+          numCores = features[1]
+          cache = features[2]
+          newRatio = features[3]
+          heap = 4404.0 * 1024 * 1024 / numContainers
+          heapMinusSurvivor = heap * (4 * (newRatio + 1) - 1) / (4 * (newRatio + 1)) #assuming survivorRatio=4
+    #print('cont: ', numContainers, ' conc: ', numCores, ' cache: ', cache, ' newRatio: ', newRatio, ' heap: ', heapMinusSurvivor)
+          totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache, cache)
+          penalty1 = np.maximum(totalUsed - heapMinusSurvivor, 0)
+          penalty2 = np.maximum(totalUsed - numCores*mtask - heap*newRatio/(newRatio+1), 0)
+          penalty3 = np.maximum(totalUsed - minit - numCores*mtask - heap*(2/3)*(1/(newRatio+1)), 0)
+          X[i] = (totalUsed, penalty1, penalty2, 0)
+
+          time = get_price(nodeType)
+          y[i] = heap / time
+          print("new regression features: ", X[i], " y: ", y[i])
+          i = i+1
+
+        reg = LinearRegression().fit(X, y)
+        print("*Done regression: ", reg.score(X,y), " coeff: ", reg.coef_, " intercept: ", reg.intercept_)
+        return reg.coef_, reg.score(X,y)
+
 
     @staticmethod
     def create_sample_dataframe(app_name, sample_data):

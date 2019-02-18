@@ -25,7 +25,7 @@ class UtilityFunction(object):
     def __init__(self, kind, gp_objective, gp_constraint=None, constraint_upper=None, xi=0.0, kappa=5., whitebox=None, gamma=0.0):
         """ If UCB is to be used, a constant kappa is needed.
         """
-        self.implementations = ['ucb', 'ei', 'eiguided', 'cei', 'poi']
+        self.implementations = ['ucb', 'ei', 'eiwhite', 'cei', 'poi']
         if kind not in self.implementations:
             err = f"The utility function {kind} has not been implemented, " \
                 "please choose one of ucb, ei, cei, or poi."
@@ -51,8 +51,8 @@ class UtilityFunction(object):
             return UtilityFunction._ucb(x, gp_objective, kappa)
         if self.kind == 'ei':
             return UtilityFunction._ei(x, gp_objective, xi)
-        if self.kind == 'eiguided':
-            return UtilityFunction._eiguided(x, gp_objective, xi, self.whitebox, self.gamma)
+        if self.kind == 'eiwhite':
+            return UtilityFunction._eiwhite(x, gp_objective, xi, self.whitebox)
         if self.kind == 'cei':
             assert gp_constraint is not None, 'gaussian processor for constraint must be provided'
             assert constraint_upper is not None, 'constraint_upper must be provided'
@@ -74,7 +74,7 @@ class UtilityFunction(object):
         return (mean - y_max - xi) * norm.cdf(z) + std * norm.pdf(z)
 
     @staticmethod
-    def _eiguided(x, gp_objective, xi, whitebox, gamma):
+    def _eiwhite(x, gp_objective, xi, whitebox):
         '''
         y_max = gp_objective.y_train_.max()
         mean, std = gp_objective.predict(x, return_std=True)
@@ -108,8 +108,19 @@ class UtilityFunction(object):
         z = (mean - y_max - xi) / std
         return norm.cdf(z)
 
+def get_eligible(values, gamma=0):
+    """ Higher values are more likely to get a score of 1
+    """
+    # quantile = np.percentile(values, gamma*100)
+    # fun = lambda x: 1.0 if x>=quantile else 0.0
+    low = np.min(values)
+    high = np.max(values)
+    fun = lambda x: 1.0 if gamma==1 or gamma==0 or x>=np.random.uniform(low, high) else 0.0
+    vfun = np.vectorize(fun)
+    # print('eligivle: ', vfun(values))
+    return vfun(values)
 
-def acq_max(utility, bounds):
+def acq_max(utility, bounds, whitebox, gamma):
     """ A function to find the maximum of the acquisition function
         It uses a combination of random sampling (cheap) and the 'L-BFGS-B'
         optimization method: 1) by sampling of "random_samples" number of random points,
@@ -126,7 +137,9 @@ def acq_max(utility, bounds):
     # Warm up using random sampling
     x_tries = np.random.uniform(bounds[:, 0], bounds[:, 1],
                                 size=(random_samples, bounds.shape[0]))
-    ys = utility(x_tries)
+    eligible = get_eligible(whitebox(x_tries), gamma)
+    ys = np.multiply(utility(x_tries), eligible)
+    #print("---Uniform samples utilities:\n ", ys, ", whitebox:\n ", whitebox(x_tries), ", eligible: ", eligible)
     # print('ys: ',ys)
     x_max = x_tries[ys.argmax()]
     max_acq = ys.max()
@@ -227,6 +240,7 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
     # Set boundary
     bounds = np.asarray(bounds)
 
+    #print('--feature mat: ', feature_mat, ', objective arr: ', objective_arr, ', whitebox: ', whitebox(feature_mat))
     gp_objective = get_fitted_gaussian_processor(
         feature_mat, objective_arr, constraint_upper, standardize_y=standardize_y, **gp_params)
     if (constraint_arr is not None) and (constraint_upper is not None):
@@ -236,13 +250,18 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
         gp_constraint, constraint_upper = None, None
 
     # Initialize utiliy function
+    givenacq = acq
     if (acq == 'eiguided'):
-      seed = random.random()
-      if (seed > gamma):
+      # seed = random.random()
+      # if (seed > gamma):
+      if gamma == 1:
+        print('Using white box model')
+        acq = 'eiwhite'
+      else:
         print('Using black box model')
         acq = 'ei' # with probability (1-gamma), use black box model
-      else:
-        print('Using white box model')
+      # else:
+        # print('Using white box model')
 
     util = UtilityFunction(kind=acq, gp_objective=gp_objective, gp_constraint=gp_constraint,
                            constraint_upper=gp_constraint.constraint_upper if gp_constraint else None,
@@ -251,7 +270,9 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
     # Finding argmax of the acquisition function.
     logger.debug("Computing argmax of acquisition function")
     start = time.time()
-    argmax = acq_max(utility=util.utility, bounds=bounds)
+    argmax = acq_max(utility=util.utility, bounds=bounds, whitebox=whitebox, gamma=gamma)
     print('Time taken: ', time.time()-start)
-    # print('**found argmax', argmax)
+
+    if (givenacq == 'eiguided'):
+      print('**found argmax: ', argmax, ', value of whitebox: ', whitebox(argmax))
     return argmax
