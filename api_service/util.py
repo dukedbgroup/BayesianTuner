@@ -114,7 +114,7 @@ def shape_service_placement(deploy_json):
 def get_all_nodetypes(region=my_region):
     """ Get all nodetypes from the database and convert them into a map.
     """
-    df = pd.read_csv('/home/mayuresh/analyzer/perf_data/kmeans-exhaustive.tsv', sep='\t', header=0, index_col=0)
+    df = pd.read_csv('/home/mayuresh/analyzer/perf_data/svm-exhaustive.tsv', sep='\t', header=0, index_col=0)
     # nodes_list = [1, 2, 3, 4]
     # cores_list_1 = [2, 4, 6, 8]
     # cores_list_2 = [1, 2, 3, 4]
@@ -127,7 +127,7 @@ def get_all_nodetypes(region=my_region):
     for row in df.iterrows():
       index, data = row
       # print(index, ': ', data)
-      nodetype_list.append({'name':index, 'nodes':data['numContainers'], 'cores':data['concurrency']*data['numContainers'], 'memory':data['cache'], 'newRatio':data['newratio'], 'instanceType':index, 'cost': {'time':data['time'], 'variance':data['sigma'], 'whitebox':data['U']}})
+      nodetype_list.append({'name':index, 'nodes':data['numContainers'], 'cores':data['concurrency']*data['numContainers'], 'memory':data['cache'], 'newRatio':data['newratio'], 'instanceType':index, 'cost': {'time':data['time'], 'variance':data['sigma'], 'whitebox':data['U']}, 'extra': {'feature1':data['feature1'], 'feature2':data['feature2'], 'feature3':data['feature3']}})
 
     '''
     nodeId = 0
@@ -195,7 +195,7 @@ def get_raw_features(nodetype_name):
     cores = nodetype['cores']
     memory = nodetype['memory']
     newRatio = nodetype['newRatio']
-    whitebox = nodetype['cost']['whitebox']
+    #whitebox = nodetype['cost']['whitebox']
     feature_vector = np.array([nodes, cores, memory, newRatio])
     '''
     vcpu = nodetype['cpuConfig']['vCPU']
@@ -218,6 +218,39 @@ def get_raw_features(nodetype_name):
         [vcpu, clock_speed, mem_size, net_bw, io_thpt])
     '''
     return feature_vector
+
+
+@lru_cache(maxsize=16)
+def get_extra_features(nodetype_name):
+    nodetype_map = get_all_nodetypes()
+    nodetype = nodetype_map.get(nodetype_name)
+    if nodetype is None:
+        raise KeyError(
+            'Cannot find instance type in the database: name={nodetype_name}')
+    f1 = nodetype['extra']['feature1']
+    f2 = nodetype['extra']['feature2']
+    f3 = nodetype['extra']['feature3']
+    feature_vector = np.array([f1, f2, f3])
+    return feature_vector
+
+
+def extra_features_bounds():
+    nodetype_map = get_all_nodetypes()
+    features = [get_extra_features(k) for k in nodetype_map]
+    return get_bounds(features)
+
+
+@lru_cache(maxsize=16)
+def encode_extra_nodetype(nodetype):
+    """ convert each node type to a normalized feature vector
+    """
+    raw_features = get_extra_features(nodetype)
+    raw_feature_bounds = np.array(extra_features_bounds())
+    # normalizing each feature variable by its maximum value
+    normalized_feature = np.divide(raw_features, raw_feature_bounds[:, 1])
+    # logger.debug(f"Encoded feature vector for {nodetype}: {features_normalized}")
+
+    return normalized_feature
 
 
 @lru_cache(maxsize=16)

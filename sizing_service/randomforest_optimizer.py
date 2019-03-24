@@ -7,8 +7,7 @@ from config import get_config
 from logger import get_logger
 from scipy.optimize import minimize
 from scipy.stats import norm
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import scale
 
 config = get_config()
@@ -22,7 +21,7 @@ class UtilityFunction(object):
     """ An object to compute the acquisition functions.
     """
 
-    def __init__(self, kind, gp_objective, gp_constraint=None, constraint_upper=None, xi=0.0, kappa=5., whitebox=None, gamma=0.0):
+    def __init__(self, kind, rf_objective, rf_constraint=None, constraint_upper=None, xi=0, kappa=5., whitebox=None, ymax=0.0):
         """ If UCB is to be used, a constant kappa is needed.
         """
         self.implementations = ['ucb', 'ei', 'eiwhite', 'cei', 'poi']
@@ -33,48 +32,57 @@ class UtilityFunction(object):
         else:
             self.kind = kind
 
-        self.gp_objective = gp_objective
-        self.gp_constraint = gp_constraint
+        self.rf_objective = rf_objective
+        self.rf_constraint = rf_constraint
         self.xi = xi
         self.kappa = kappa
         self.constraint_upper = constraint_upper
         self.whitebox = whitebox
-        self.gamma = gamma
+        self.ymax = ymax
 
     def utility(self, x, *args):
-        gp_objective = self.gp_objective
-        gp_constraint = self.gp_constraint
+        rf_objective = self.rf_objective
+        rf_constraint = self.rf_constraint
         constraint_upper = self.constraint_upper
         xi, kappa = self.xi, self.kappa
 
         if self.kind == 'ucb':
-            return UtilityFunction._ucb(x, gp_objective, kappa)
+            return UtilityFunction._ucb(x, rf_objective, kappa)
         if self.kind == 'ei':
-            return UtilityFunction._ei(x, gp_objective, xi)
+            return UtilityFunction._ei(x, rf_objective, xi, self.ymax)
         if self.kind == 'eiwhite':
-            return UtilityFunction._eiwhite(x, gp_objective, xi, self.whitebox)
+            return UtilityFunction._eiwhite(x, rf_objective, xi, self.whitebox)
         if self.kind == 'cei':
-            assert gp_constraint is not None, 'gaussian processor for constraint must be provided'
+            assert rf_constraint is not None, 'gaussian processor for constraint must be provided'
             assert constraint_upper is not None, 'constraint_upper must be provided'
-            return UtilityFunction._cei(x, gp_objective, xi, gp_constraint, constraint_upper)
+            return UtilityFunction._cei(x, rf_objective, xi, rf_constraint, constraint_upper)
         if self.kind == 'poi':
-            return UtilityFunction._poi(x, gp_objective, xi)
+            return UtilityFunction._poi(x, rf_objective, xi)
+    
+    @staticmethod
+    def rf_std(rf_objective, x, mu):
+      B = len(rf_objective.estimators_)
+      ss = 0
+      for model in rf_objective.estimators_:
+        ss = ss + (model.predict(x)-mu) ** 2
+      return ss / B
 
     @staticmethod
-    def _ucb(x, gp_objective, kappa):
-        mean, std = gp_objective.predict(x, return_std=True)
+    def _ucb(x, rf_objective, kappa):
+        mean = rf_objective.predict(x)
+        std = UtilityFunction.rf_std(rf_objective, x, mean)
         return mean + kappa * std
 
     @staticmethod
-    def _ei(x, gp_objective, xi):
-        y_max = gp_objective.y_train_.max()
-        mean, std = gp_objective.predict(x, return_std=True)
-        #print('black box values at: ', x, ' mean: ', mean, ' std: ', std, ' ymax: ', y_max)
+    def _ei(x, rf_objective, xi, y_max):
+        mean = rf_objective.predict(x)
+        std = UtilityFunction.rf_std(rf_objective, x, mean)
+        #print('acquisition values at: ', x, ' mean: ', mean, ' std: ', std, ' ymax: ', y_max)
         z = (mean - y_max - xi) / std
         return (mean - y_max - xi) * norm.cdf(z) + std * norm.pdf(z)
 
     @staticmethod
-    def _eiwhite(x, gp_objective, xi, whitebox):
+    def _eiwhite(x, rf_objective, xi, whitebox):
         '''
         y_max = gp_objective.y_train_.max()
         mean, std = gp_objective.predict(x, return_std=True)
@@ -89,22 +97,22 @@ class UtilityFunction(object):
 
 
     @staticmethod
-    def _cei(x, gp_objective, xi, gp_constraint, constraint_upper):
+    def _cei(x, rf_objective, xi, rf_constraint, constraint_upper):
         """ Compute the cdf under constraint_upper (i.e. P(c(x) < constraint_upper)) to modulate the ei(x).
             where c(x) is the estimated marginal distribution of the Gaussian process.
         """
-        ei = UtilityFunction._ei(x, gp_objective, xi)
+        ei = UtilityFunction._ei(x, rf_objective, xi)
 
-        mean, std = gp_constraint.predict(x, return_std=True)
+        mean, std = rf_constraint.predict(x, return_std=True)
         z = (constraint_upper - mean) / std
 
         cumulative_probabiliy = norm.cdf(z)
         return cumulative_probabiliy * ei
 
     @staticmethod
-    def _poi(x, gp_objective, xi):
-        y_max = gp_objective.y_train_.max()
-        mean, std = gp_objective.predict(x, return_std=True)
+    def _poi(x, rf_objective, xi):
+        y_max = rf_objective.y_train_.max()
+        mean, std = rf_objective.predict(x, return_std=True)
         z = (mean - y_max - xi) / std
         return norm.cdf(z)
 
@@ -144,43 +152,45 @@ def acq_max(utility, bounds, whitebox, gamma, extrabounds):
     if (gamma==1.0):
       newFeatures = whitebox(x_tries)
       if(extrabounds is not None):
-         newFeatures = dividebyzero(newFeatures, extrabounds[:, 1])
+        newFeatures = dividebyzero(newFeatures, extrabounds[:,1])
       x_tries = np.concatenate((x_tries, newFeatures), axis=1)
     if (gamma==0.5):
       x_tries = whitebox(x_tries)
-      if(extrabounds is not None):
-         x_tries = dividebyzero(x_tries, extrabounds[:, 1])
+      if(x_tries is not None):
+        x_tries = dividebyzero(x_tries, extrabounds[:,1])
     # eligible = get_eligible(whitebox(x_tries), gamma)
     # ys = np.multiply(utility(x_tries), eligible)
     ys = utility(x_tries)
     # print("---Uniform samples utilities:\n ", ys, ", whitebox:\n ", whitebox(x_tries), ", eligible: ", eligible)
-    #print('x_tries: ', x_tries, ' ys: ',ys)
+    # print('ys: ',ys)
     x_max = x_tries_orig[ys.argmax()]
     max_acq = ys.max()
-    print('**max acq found from uniform: ', max_acq, ' at x:', x_max)
+    print('**max acq found from uniform random: ', max_acq, ' at x:', x_max)
 
     logger.info(f'nonzeros in the utility function: {np.count_nonzero(ys)}')
 
     # Explore the parameter space more throughly using L-BFGS-B
     x_seeds = np.random.uniform(bounds[:, 0], bounds[:, 1],
                                 size=(random_seeds, bounds.shape[0]))
+    x_seeds_orig = np.copy(x_seeds)
     if (gamma==1.0):
       newFeatures = whitebox(x_seeds)
       x_seeds = np.concatenate((x_seeds, newFeatures), axis=1)
+    if (gamma==0.5):
+      x_seeds = whitebox(x_seeds)
+    
     for x_try in x_seeds:
         if(gamma==0.5):
-          break # can't deal with this
+          break # can't deal with this case
         # Find the minimum of minus the acquisition function
         res = minimize(lambda x: -utility(x.reshape(1, -1)), x_try.reshape(1, -1),
                        #bounds=bounds,
                        method="L-BFGS-B")
+        # print("found seed: ", res.x, " function: ", -res.fun, " length: ", len(bounds))
         # Store it if better than previous minimum(maximum).
         if max_acq is None or -res.fun[0] >= max_acq:
             x_max = res.x[range(len(bounds))]
             max_acq = -res.fun[0]
-        #if max_acq is None or (type(res.fun) is float and -res.fun >= max_acq) or (type(res.fun) is 'array' and -res.fun[0] >= max_acq):
-        #    x_max = res.x[:, range(len(bounds))]
-        #    max_acq = -res.fun[0]
 
     print('**max acq found: ', max_acq, ' at x:', x_max)
     # Clip output to make sure it lies within the bounds.
@@ -208,12 +218,12 @@ def unique_rows(a):
     return ui[reorder]
 
 
-def get_fitted_gaussian_processor(X_train, y_train, constraint_upper, standardize_y=True, **gp_params):
+def get_fitted_randomforest_processor(X_train, y_train, constraint_upper, standardize_y=True, **rf_params):
     # Initialize gaussian process regressor
-    gp = GaussianProcessRegressor()
-    gp.set_params(**gp_params)
-    logger.debug('Instantiated gaussian processor for objective function:\n' + f'{gp}')
-    logger.debug(f"Fitting gaussian processor")
+    rf = RandomForestRegressor()
+    rf.set_params(**rf_params)
+    logger.debug('Instantiated random forest processor for objective function:\n' + f'{rf}')
+    logger.debug(f"Fitting random forest processor")
 
     if standardize_y:
         if constraint_upper is not None:
@@ -223,27 +233,19 @@ def get_fitted_gaussian_processor(X_train, y_train, constraint_upper, standardiz
         else:
             y_train = scale([i for i in y_train])
             scaled_constraint_upper = None
-        gp.constraint_upper = scaled_constraint_upper
+        rf.constraint_upper = scaled_constraint_upper
     else:
-        gp.constraint_upper = constraint_upper
+        rf.constraint_upper = constraint_upper
 
     logger.debug(f'X_train:\n{X_train}')
     logger.debug(f'y_train\n{y_train}')
-    logger.debug(f'constraint_upper: {gp.constraint_upper}')
-    if gp_params is None or gp_params.get('alpha') is None:
+    #if rf_params is None or gp_params.get('alpha') is None:
         # Find unique rows of X to avoid GP from breaking
-        ur = unique_rows(X_train)
-        gp.fit(X_train[ur], y_train[ur])
-    else:
-        gp.fit(X_train, y_train)
-    return gp
-
-def r2_score(y, yhat):
-    ybar = np.sum(y)/len(y)          # or sum(y)/len(y)
-    ssreg = np.sum((yhat-y)**2)   # or sum([ (yihat - ybar)**2 for yihat in yhat])
-    sstot = np.sum((y - ybar)**2)    # or sum([ (yi - ybar)**2 for yi in y])
-    return 1 - ssreg / sstot
-
+        #ur = unique_rows(X_train)
+        #rf.fit(X_train[ur], y_train[ur])
+    #else:
+    rf.fit(X_train, y_train)
+    return rf
 
 def dividebyzero(a, b):
     #with np.errstate(divide='ignore', invalid='ignore'):
@@ -251,12 +253,13 @@ def dividebyzero(a, b):
     #    c[ ~ np.isfinite( c )] = 0  # -inf inf NaN
     #return c
     #b[b==0]=1
+    #print('a: ', a, ' b: ', b)
     return np.divide(a, b, out=np.zeros_like(a), where=b!=0)
 
 def get_candidate(feature_mat, objective_arr, bounds, acq,
                   constraint_arr=None, constraint_upper=None,
                   kappa=5, xi=0.0, standardize_y=True,
-                  whitebox=None, gamma=0.0, extrabounds=None, **gp_params):
+                  whitebox=None, gamma=0.0, extrabounds=None, **rf_params):
     """ Compute the next candidate based on Bayesian Optimization
     Args:
         feature_mat(numpy 2d array): feature vectors
@@ -269,67 +272,55 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
         argmax(vector): argmax of acquisition function
     """
     # TODO: Put these into config file
-    #if gp_params is None:
+    #if rf_params is None:
     seed = 6
-    gp_params = {"alpha": 1e-10, "n_restarts_optimizer": 25,
-                "normalize_y": True, "kernel": Matern(nu=2.5), "random_state": seed}
+    rf_params = {"n_estimators": 100, "max_features": 'auto', 
+                     "random_state": seed}
     # Set boundary
     bounds = np.asarray(bounds)
     extrabounds = np.asarray(extrabounds)
-    print('extra bounds: ', extrabounds)
 
     # Add new features
     orig_features = np.copy(feature_mat)
     if(gamma==1.0): 
       newFeatures = whitebox(feature_mat)
       if(extrabounds is not None):
-         newFeatures = dividebyzero(newFeatures, extrabounds[:,1])
-      #print('--feature_mat: ', feature_mat, '  --newFeatures: ', newFeatures)
+        newFeatures = dividebyzero(newFeatures, extrabounds[:,1])
+        #print('--feature_mat: ', feature_mat, '  --newFeatures: ', newFeatures)
       feature_mat = np.concatenate((feature_mat, newFeatures), axis=1)
       # print('--New features added: ', newFeatures)
     if(gamma==0.5):
       feature_mat = whitebox(feature_mat)
       if(extrabounds is not None):
-         feature_mat = dividebyzero(feature_mat, extrabounds[:, 1])
-    
-    # print('--feature mat: ', feature_mat, ', objective arr: ', objective_arr)
+        feature_mat = dividebyzero(feature_mat, extrabounds[:,1])
 
-    objective_arr_np = np.array(objective_arr.tolist())
+    objective_arr_np = np.array(objective_arr.tolist())    
+    #print('--feature mat: ', feature_mat, ', objective arr: ', objective_arr, ', whitebox: ', whitebox(feature_mat))
     start = time.time()
-    gp_objective = get_fitted_gaussian_processor(
-        feature_mat, objective_arr_np, constraint_upper, standardize_y=standardize_y, **gp_params)
-    if (constraint_arr is not None) and (constraint_upper is not None):
-        gp_constraint = get_fitted_gaussian_processor(
-            feature_mat, constraint_arr, constraint_upper, standardize_y=standardize_y, **gp_params)
-    else:
-        gp_constraint, constraint_upper = None, None
-    print('Fitting time taken: ', time.time()-start)
-    print('Error in fitting: ', gp_objective.score(feature_mat, objective_arr_np), ' orig: ', objective_arr_np, ' predicted: ', gp_objective.predict(feature_mat))
+    rf_objective = get_fitted_randomforest_processor(
+        feature_mat, objective_arr_np, constraint_upper, standardize_y=standardize_y, **rf_params)
+    rf_constraint, constraint_upper = None, None
+    print('Time taken for fitting: ', time.time()-start)
+    print('Error in fitting: ', rf_objective.score(feature_mat, objective_arr_np), ' predictions: ', rf_objective.predict(feature_mat), ' true values: ', objective_arr_np)
+    print('Importance: ', rf_objective.feature_importances_)
 
     # Initialize utiliy function
-    #givenacq = acq
-    #if (acq == 'eiguided'):
-      # seed = random.random()
-      # if (seed > gamma):
-      #if gamma == 1:
+    #if gamma == 1:
         #print('Using white box model')
-        #acq = 'ei'
-      #else:
+        #acq = 'ucb'
+    #else:
         #print('Using black box model')
-        #acq = 'ei' # with probability (1-gamma), use black box model
-      # else:
-        # print('Using white box model')
+        #acq = 'ucb' # with probability (1-gamma), use black box model
 
-    util = UtilityFunction(kind=acq, gp_objective=gp_objective, gp_constraint=gp_constraint,
-                           constraint_upper=gp_constraint.constraint_upper if gp_constraint else None,
-                           xi=xi, kappa=kappa, whitebox=whitebox, gamma=gamma)
+    util = UtilityFunction(kind=acq, rf_objective=rf_objective, rf_constraint=rf_constraint,
+                           constraint_upper=rf_constraint.constraint_upper if rf_constraint else None,
+                           xi=xi, kappa=kappa, whitebox=whitebox, ymax=objective_arr_np.max())
 
     # Finding argmax of the acquisition function.
     logger.debug("Computing argmax of acquisition function")
     start = time.time()
     argmax = acq_max(utility=util.utility, bounds=bounds, whitebox=whitebox, gamma=gamma, extrabounds=extrabounds)
-    print('Acquisition Time taken: ', time.time()-start)
+    print('Time taken for acquisition: ', time.time()-start)
 
-    #if (givenacq == 'eiguided'):
-      #print('**found argmax: ', argmax, ', value of whitebox: ', whitebox(argmax))
+    #print('**found argmax: ', argmax, ', value of whitebox: ', whitebox(argmax))
     return argmax

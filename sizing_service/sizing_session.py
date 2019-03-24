@@ -12,11 +12,12 @@ from api_service.db import metricdb
 from config import get_config
 from logger import get_logger
 
-from bayesian_optimizer import get_candidate
+#from bayesian_optimizer import get_candidate
+from randomforest_optimizer import get_candidate
 from session_worker_pool import FuncArgs, Status, SessionStatus, SessionWorkerPool
 from state.apps import (get_app_by_name, get_slo_type, get_slo_value, get_budget)
 from api_service.util import (get_all_nodetypes, compute_cost, decode_nodetype, encode_nodetype,
-                              get_price, get_raw_features, get_feature_bounds, get_resource_requests)
+                              get_price, get_raw_features, get_feature_bounds, get_resource_requests, get_extra_features, encode_extra_nodetype, extra_features_bounds)
 
 config = get_config()
 sizing_collection = config.get("ANALYZER", "SIZING_COLLECTION")
@@ -35,10 +36,13 @@ logger = get_logger(__name__, log_level=(
     "BAYESIAN_OPTIMIZER_SESSION", "LOGLEVEL"))
 
 # hardcoding memory values for whitebox
-minit = 1.22E+08
-mtask = 7.14E+07
-mcache = 0.8
-a=(0, 1.0, -2.0, -2.0, 0)
+minit = 1.05E+08
+#1.22E+08 132639251.858824 1.05E+08
+mtask = 5.35E+07
+#7.14E+07 71394676.2 5.35E+07 9.43E+08
+mcache = 0.6
+mshuffle = 0
+a=(0, 1.0, -2.0, -0, -2.0)
 # function to extract white box utility for a given point
 def whiteboxEval(x):
     # print('read x: ', x)
@@ -49,17 +53,34 @@ def whiteboxEval(x):
     heap = 4404.0 * 1024 * 1024 / numContainers
     heapMinusSurvivor = heap * (4 * (newRatio + 1) - 1) / (4 * (newRatio + 1)) #assuming survivorRatio=4
     #print('cont: ', numContainers, ' conc: ', numCores, ' cache: ', cache, ' newRatio: ', newRatio, ' heap: ', heapMinusSurvivor)
-    totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache, cache)
+    totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache+mshuffle, cache)
     penalty1 = np.maximum(totalUsed - heapMinusSurvivor, 0)
     penalty2 = np.maximum(totalUsed - numCores*mtask - heap*newRatio/(newRatio+1), 0)
-    penalty3 = np.maximum(totalUsed - minit - numCores*mtask - heap*(2/3)*(1/(newRatio+1)), 0)
+    penalty3 = np.maximum(totalUsed - minit - heap*(2/3)*(1/(newRatio+1)), 0)
     # U = (totalUsed - penalty1 - penalty3) / heap
     U = (a[0] + a[1] * totalUsed + a[2] * penalty1 + a[3] * penalty2 + a[4] * penalty3) / heap
     #print('utility: ', U)
-    return U 
+    return U
+
+def newFeatures(x):
+    # print('read x: ', x)
+    numContainers = int(round(x[0] * 4))
+    numCores = int(round(x[1] * 8 / numContainers))
+    cache = x[2] * 0.8
+    newRatio = int(round(x[3] * 7))
+    heap = 4404.0 * 1024 * 1024 / numContainers
+    heapMinusSurvivor = heap * (4 * (newRatio + 1) - 1) / (4 * (newRatio + 1)) #assuming survivorRatio=4
+    #print('cont: ', numContainers, ' conc: ', numCores, ' cache: ', cache, ' newRatio: ', newRatio, ' heap: ', heapMinusSurvivor)
+    totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache+mshuffle, cache)
+    feature1 = totalUsed / heap 
+    longTerm = minit + heapMinusSurvivor * mcache
+    feature2 = 0 if mcache<=0.0 else longTerm / np.minimum(np.minimum(mcache*heapMinusSurvivor, cache*heapMinusSurvivor), newRatio/(newRatio+1)*heapMinusSurvivor)
+    shortTerm = numCores * mtask + heapMinusSurvivor * mshuffle
+    feature3 = 0 if mshuffle<=0.0 else shortTerm / np.minimum(mshuffle*heapMinusSurvivor, 0.66/(newRatio+1)*heapMinusSurvivor) 
+    return np.array([feature1, feature2, feature3])
 
 whiteboxFunction = np.vectorize(whiteboxEval, signature='(n)->()')
-  
+newFeaturesFunction = np.vectorize(newFeatures, signature='(n)->(m)')  
 
 class SizingSession():
     """ This class manages the training samples in a single sizing session,
@@ -140,7 +161,7 @@ class SizingSession():
         # Update sample dataframe and check termination
         new_sample_dataframe = SizingSession.create_sample_dataframe(app_name, sample_data)
         # force samples
-        allNodes = get_all_nodetypes()
+        #allNodes = get_all_nodetypes()
         # Store the sizing run result to the database
         # self.update_sizing_run(new_sample_dataframe)
         self.update_available_nodetype_set(new_sample_dataframe['nodetype'].values)
@@ -172,10 +193,11 @@ class SizingSession():
                          training_data.feature_mat, \
                          training_data.objective_arr, \
                          get_feature_bounds(normalized=True), \
-                         acq='cei' if training_data.has_constraint() else 'eiguided', \
+                         acq='cei' if training_data.has_constraint() else 'ei', \
                          constraint_arr=training_data.constraint_arr, \
-                         constraint_upper=training_data.constraint_upper,
-                         whitebox=whiteboxFunction, gamma=0.5))
+                         constraint_upper=training_data.constraint_upper, \
+                         whitebox=newFeaturesFunction, gamma=1, \
+                         extrabounds=extra_features_bounds()))
 
         with self.__instance_lock:
             return self.pool.submit_funcs(functions)
@@ -299,6 +321,8 @@ class SizingSession():
         result = []
         # pre-created samples with LHS
         all_nodetypes = get_all_nodetypes()
+        #for i in range(150):
+          #result.append(all_nodetypes[i]['name'])
         result.append(all_nodetypes[27]['name'])
         result.append(all_nodetypes[69]['name'])
         result.append(all_nodetypes[146]['name'])
@@ -345,12 +369,13 @@ class SizingSession():
             """
 
             def __init__(self, objective_type, feature_mat, objective_arr,
-                         constraint_arr=None, constraint_upper=None):
+                         constraint_arr=None, constraint_upper=None, extra_features=None):
                 self.objective_type = objective_type
                 self.feature_mat = feature_mat
                 self.objective_arr = objective_arr
                 self.constraint_arr = constraint_arr
                 self.constraint_upper = constraint_upper
+                self.extra_features = extra_features
 
             def __str__(self):
                 result = ""
@@ -373,11 +398,11 @@ class SizingSession():
             raise NotImplementedError(f'objective_type: {objective_type} is not implemented.')
 
         feature_mat = np.array(sample_dataframe['feature'].tolist())
+        extra_features = np.array(sample_dataframe['extra'].tolist())
         slo_type = sample_dataframe['slo_type'].iloc[0]
         budget = sample_dataframe['budget'].iloc[0]
         perf_constraint = sample_dataframe['slo_value'].iloc[0]
         perf_arr = sample_dataframe['qos_value']
-
         # Convert metric so we always try to maximize performance
         if slo_type == 'latency':
             perf_arr = 1. / sample_dataframe['qos_value']
@@ -390,11 +415,11 @@ class SizingSession():
         # Compute objectives
         perf_over_cost = perf_arr.rename("performance over cost")
         # (perf_arr / sample_dataframe['cost']).rename("performance over cost")
-
         if objective_type == 'perf_over_cost':
             return BOTrainingData(objective_type,
                                   feature_mat,
-                                  perf_over_cost)
+                                  perf_over_cost,
+                                  extra_features=extra_features)
         elif objective_type == 'cost_given_perf_limit':
             return BOTrainingData(objective_type,
                                   feature_mat,
@@ -472,6 +497,7 @@ class SizingSession():
                                'slo_type': [slo_type],
                                'nodetype': [nodetype],
                                'feature': [encode_nodetype(nodetype)],
+                               'extra': [encode_extra_nodetype(nodetype)],
                                'cost': [compute_cost(get_price(nodetype), slo_type, qos_value)],
                                'slo_value': [get_slo_value(app_name)],
                                'budget': [get_budget(app_name)]})

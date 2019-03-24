@@ -278,7 +278,7 @@ def __main__():
   # build feature map for all the instances types
   all_nodetypes = list(util.get_all_nodetypes().values())
   numtypes = len(all_nodetypes)
-  if numtypes < args.iter*3:
+  if numtypes < 3 * args.iter:
     print("ERROR: Not enough nodetypes in database")
     sys.exit()
   # build dictionary with features for all instances
@@ -327,7 +327,7 @@ def __main__():
       if model == 'aws': # use real data from aws
           perf = aws_data.perf_map[nodetype]['qosValue']
       else: # use CloudPerf model instead
-          perf = times[nodetype] + np.sqrt(variance[nodetype]) * np.random.randn()
+          perf = times[nodetype] #+ np.sqrt(variance[nodetype]) * np.random.randn()
           # perf = cloud.perf(feat[0], feat[1], feat[2], feat[3], args.noise)
       request_str += "{\"instanceType\": %d, \"qosValue\": %f, \"variance\": %f}" %(nodetype, perf, variance[nodetype])
       if count < len(status_dict["data"]):
