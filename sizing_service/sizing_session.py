@@ -12,8 +12,8 @@ from api_service.db import metricdb
 from config import get_config
 from logger import get_logger
 
-#from bayesian_optimizer import get_candidate
-from randomforest_optimizer import get_candidate
+from bayesian_optimizer import get_candidate
+#from randomforest_optimizer import get_candidate
 from session_worker_pool import FuncArgs, Status, SessionStatus, SessionWorkerPool
 from state.apps import (get_app_by_name, get_slo_type, get_slo_value, get_budget)
 from api_service.util import (get_all_nodetypes, compute_cost, decode_nodetype, encode_nodetype,
@@ -36,11 +36,11 @@ logger = get_logger(__name__, log_level=(
     "BAYESIAN_OPTIMIZER_SESSION", "LOGLEVEL"))
 
 # hardcoding memory values for whitebox
-minit = 1.05E+08
-#1.22E+08 132639251.858824 1.05E+08
-mtask = 5.35E+07
-#7.14E+07 71394676.2 5.35E+07 9.43E+08
-mcache = 0.6
+minit = 1.33E+08
+#1.38E+08 1.08E+08 1.22E+08 132639251.858824 1.05E+08
+mtask = 9.43E+08 
+#9.43E+08 2.27E+07 7.14E+07 71394676.2 5.35E+07
+mcache = 0.8
 mshuffle = 0
 a=(0, 1.0, -2.0, -0, -2.0)
 # function to extract white box utility for a given point
@@ -72,11 +72,11 @@ def newFeatures(x):
     heapMinusSurvivor = heap * (4 * (newRatio + 1) - 1) / (4 * (newRatio + 1)) #assuming survivorRatio=4
     #print('cont: ', numContainers, ' conc: ', numCores, ' cache: ', cache, ' newRatio: ', newRatio, ' heap: ', heapMinusSurvivor)
     totalUsed = minit + numCores * mtask + heapMinusSurvivor * np.minimum(mcache+mshuffle, cache)
-    feature1 = totalUsed / heap 
+    feature1 = 0 #np.minimum(1, totalUsed / heap)
     longTerm = minit + heapMinusSurvivor * mcache
     feature2 = 0 if mcache<=0.0 else longTerm / np.minimum(np.minimum(mcache*heapMinusSurvivor, cache*heapMinusSurvivor), newRatio/(newRatio+1)*heapMinusSurvivor)
     shortTerm = numCores * mtask + heapMinusSurvivor * mshuffle
-    feature3 = 0 if mshuffle<=0.0 else shortTerm / np.minimum(mshuffle*heapMinusSurvivor, 0.66/(newRatio+1)*heapMinusSurvivor) 
+    feature3 = 0 if mshuffle<=0.0 else shortTerm / np.minimum(mshuffle*heapMinusSurvivor, 0.66/(newRatio+1)*heapMinusSurvivor)
     return np.array([feature1, feature2, feature3])
 
 whiteboxFunction = np.vectorize(whiteboxEval, signature='(n)->()')
@@ -196,7 +196,7 @@ class SizingSession():
                          acq='cei' if training_data.has_constraint() else 'ei', \
                          constraint_arr=training_data.constraint_arr, \
                          constraint_upper=training_data.constraint_upper, \
-                         whitebox=newFeaturesFunction, gamma=1, \
+                         whitebox=newFeaturesFunction, gamma=0, \
                          extrabounds=extra_features_bounds()))
 
         with self.__instance_lock:

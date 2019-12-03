@@ -9,7 +9,8 @@ from scipy.optimize import minimize
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
-from sklearn.preprocessing import scale
+from sklearn.preprocessing import scale, StandardScaler
+from sklearn.model_selection import cross_val_score
 
 config = get_config()
 random_samples = config.getint("BAYESIAN_OPTIMIZER", "RANDOM_SAMPLES")
@@ -271,12 +272,13 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
     # TODO: Put these into config file
     #if gp_params is None:
     seed = 6
-    gp_params = {"alpha": 1e-10, "n_restarts_optimizer": 25,
+    gp_params = {"alpha": 1e-9, "n_restarts_optimizer": 25,
                 "normalize_y": True, "kernel": Matern(nu=2.5), "random_state": seed}
+    # kernel: Matern(nu=2.5)
     # Set boundary
     bounds = np.asarray(bounds)
     extrabounds = np.asarray(extrabounds)
-    print('extra bounds: ', extrabounds)
+    #print('extra bounds: ', extrabounds)
 
     # Add new features
     orig_features = np.copy(feature_mat)
@@ -286,7 +288,7 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
          newFeatures = dividebyzero(newFeatures, extrabounds[:,1])
       #print('--feature_mat: ', feature_mat, '  --newFeatures: ', newFeatures)
       feature_mat = np.concatenate((feature_mat, newFeatures), axis=1)
-      # print('--New features added: ', newFeatures)
+      #print('--New features added: ', newFeatures)
     if(gamma==0.5):
       feature_mat = whitebox(feature_mat)
       if(extrabounds is not None):
@@ -294,10 +296,13 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
     
     # print('--feature mat: ', feature_mat, ', objective arr: ', objective_arr)
 
+    #preporcessing, standardization
     objective_arr_np = np.array(objective_arr.tolist())
+    scalar = StandardScaler()
+    scalar.fit_transform(objective_arr_np.reshape(-1,1))
     start = time.time()
     gp_objective = get_fitted_gaussian_processor(
-        feature_mat, objective_arr_np, constraint_upper, standardize_y=standardize_y, **gp_params)
+        feature_mat, objective_arr_np, constraint_upper, standardize_y=False, **gp_params)
     if (constraint_arr is not None) and (constraint_upper is not None):
         gp_constraint = get_fitted_gaussian_processor(
             feature_mat, constraint_arr, constraint_upper, standardize_y=standardize_y, **gp_params)
@@ -305,6 +310,47 @@ def get_candidate(feature_mat, objective_arr, bounds, acq,
         gp_constraint, constraint_upper = None, None
     print('Fitting time taken: ', time.time()-start)
     print('Error in fitting: ', gp_objective.score(feature_mat, objective_arr_np), ' orig: ', objective_arr_np, ' predicted: ', gp_objective.predict(feature_mat))
+    R2scores = cross_val_score(gp_objective, feature_mat, objective_arr_np, cv=4, n_jobs=-1)
+    print('Cross-validation scores: ', R2scores, ' mean: ', R2scores.mean())
+    print('Log marginal likelihood: ', gp_objective.log_marginal_likelihood())
+
+    # new validation dataset
+    valid_feature_mat = np.array([
+[.25, .25, .5, .429, 0, 0.44635193133, 0],
+[.25, .25, .5, .714, 0, 0.44420600858, 0],
+[.25, .25, .5, 1, 0, 0.44420600858, 0],
+[.25, .25, .75, .143, 0, 0.35836909871, 0],
+[.25, .25, .75, .429, 0, 0.29613733905, 0],
+[.5, .75, .5, .714, 0, 0.46137339055, 0],
+[.5, .75, .5, 1, 0, 0.46137339055, 0],
+[.5, .75, .75, .143, 0, 0.37124463519, 0],
+[.5, .75, .75, .429, 0, 0.30901287553, 0],
+[.5, .75, .75, .714, 0, 0.30686695279, 0],
+[.75, .75, 1, .429, 0, 0.25536480686, 0],
+[.75, .75, 1, .714, 0, 0.23819742489, 0],
+[.75, .75, 1, 1, 0, 0.23819742489, 0],
+[1, .5, .25, .143, 0, 1, 0],
+[1, .5, .25, .429, 0, 0.98927038626, 0]
+])
+    valid_objective_arr = np.array([
+0.04,
+0.03703703704,
+0.03448275862,
+0.03703703704,
+0.04761904762,
+0.05882352941,
+0.05,
+0.05263157895,
+0.04166666667,
+0.07142857143,
+0.07142857143,
+0.09090909091,
+0.1149425287,
+0.0125,
+0.04166666667
+])
+    predictions = gp_objective.predict(valid_feature_mat[:, :4])
+    print('Validation set: ', valid_objective_arr, 'Predictions: ', predictions, 'r2: ', r2_score(predictions, valid_objective_arr))
 
     # Initialize utiliy function
     #givenacq = acq
